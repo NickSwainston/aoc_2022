@@ -45,9 +45,6 @@ def dfs_paths(elevations, start, end, nrows, ncols, unvisted_pos):
                 unvisted_pos.remove(next)
                 stack.append((next, path + [next]))
 
-        # if si == 100:
-        #     exit()
-
 
 if __name__ == "__main__":
     elevations = []
@@ -55,9 +52,10 @@ if __name__ == "__main__":
         for line in data_file:
             elevations.append([ord(char) - 96 for char in line.strip()])
     elevations = np.array(elevations, dtype=int)
-    print(elevations)
+
     nrows, ncols = elevations.shape
     print(f"Size : ({nrows}, {ncols})")
+
     orig_start = np.where(elevations == -27)
     orig_start = (orig_start[0][0],   orig_start[1][0])
     end = np.where(elevations == -27)
@@ -65,18 +63,14 @@ if __name__ == "__main__":
     elevations[orig_start[0]][orig_start[1]] = 1
     elevations[end[0]][end[1]] = 26
 
-
     possible_starts = []
     for ri in range(nrows):
         for ci in range(ncols):
             if elevations[ri][ci] == 1:
                 possible_starts.append((ri, ci))
-    print(possible_starts)
+
     possible_lengths = []
     for start in possible_starts:
-        print(f"Start: {start}")
-        print(f"End:   {end}")
-
         unvisted_pos = []
         for ri in range(nrows):
             for ci in range(ncols):
@@ -92,18 +86,5 @@ if __name__ == "__main__":
         if start == orig_start:
             print(f"Part 1: {min_path}")
         possible_lengths.append(min_path)
+
     print(f"Part 2: {min(possible_lengths)}")
-
-    # path = paths[lengths.index(min(lengths))]
-    # print(path)
-
-    # for ri in range(nrows):
-    #     row_str = ""
-    #     for ci in range(ncols):
-    #         if (ri, ci) in path:
-    #             row_str += f"{path.index((ri,ci)):4d}"
-    #         else:
-    #             row_str += "     "
-    #     print(row_str)
-
-    # print(lenghts)

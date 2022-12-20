@@ -1,3 +1,5 @@
+import functools
+
 class true_error(BaseException):
     pass
 
@@ -31,183 +33,157 @@ def get_list(ci, input_list):
         else:
             new_list.append(new_item)
 
-def check_order(left, right, depth):
+
+def check_order_wrapper(left, right, depth=1):
+    try:
+        check_order(left, right, depth)
+    except true_error:
+        # print(True)
+        return -1
+    except false_error:
+        # print(False)
+        return 1
+
+
+def parse_inputs(packet, depth, verbose=True):
     # print(f"{(depth - 1) * '  '}Compare [{','.join(left)}] vs [{','.join(right)}] line 29")
     # # print(f"{(depth - 1) * '  '}Compare [{left}] vs [{right}]")
+    parsed_packet = []
+    skip = 0
+    for ci, part in enumerate(packet):
+        if len(part) == 0:
+            # print(f"{depth * '  '} empty {part}")
+            continue
+        if skip > 0:
+            # print(f"{depth * '  '} skip {part} {skip}")
+            skip -= 1
+            continue
+        if part[0] == "[":
+            # both lists so get list and restart fucntion
+            new_part  = get_list(ci, packet)
+            skip = len(new_part) - 1
+            # print(f"{depth * '  '} new_part {new_part}")
+            depth += 1
+            parsed_part = parse_inputs(new_part, depth)
+            depth -= 1
+            parsed_packet.append(parsed_part)
+            continue
+        # print(f"{depth * '  '}{part}")
+        parsed_packet.append(int(part))
+    return parsed_packet
+
+
+def check_order(left, right, depth, verbose=False):
+    # print(f"{(depth - 1) * '  '}Compare [{','.join(left)}] vs [{','.join(right)}] line 29")
+    if verbose:
+        print(f"{(depth - 1) * '  '}Compare {left} vs {right}")
+
     for ci, chars in enumerate(zip(left, right)):
         lc, rc = chars
-        if len(lc) == 0 and len(rc) == 0:
-            # print(f"{depth * '  '}Both ran out so continue")
-            continue
-        elif len(lc) == 0:
-            # print(f"{depth * '  '}Left side ran out of items, so inputs are in the right order")
-            raise true_error
-        elif len(rc) == 0:
-            # print(f"{depth * '  '}Right side ran out of items, so inputs are not in the right order")
-            raise false_error
-        elif left == '[]':
-            # print(f"{depth * '  '}Left side ran out of items, so inputs are in the right order")
-            raise true_error
-        elif right == '[]':
-            # print(f"{depth * '  '}Right side ran out of items, so inputs are not in the right order")
-            raise false_error
-        # print(f"{depth * '  '}Compare {lc} vs {rc}")
-        if lc[0] == "[" and rc[0] == "[":
+        if type(lc) == list and type(rc) == list:
+            # Perform double list checks
             # both lists so get list and restart fucntion
-            new_left  = get_list(ci, left)
-            new_right = get_list(ci, right)
             depth += 1
-            check_order(new_left, new_right, depth)
+            check_order(lc, rc, depth)
             depth -= 1
-        elif lc[0] == "[" and rc[0].isdigit():
-            # left is list so make right one as well
-            new_left  = get_list(ci, left)
-            new_right = [rc[0]]
-            # print(f"{depth * '  '}Mixed types; convert right to {new_right} and retry comparison")
-            depth += 1
-            check_order(new_left, new_right, depth)
-            depth -= 1
-        elif lc[0].isdigit() and rc[0] == "[":
-            # right is list so make left one as well
-            new_left  = [lc[0]]
-            new_right = get_list(ci, right)
-            # print(f"{depth * '  '}Mixed types; convert left to {new_left} and retry comparison")
-            depth += 1
-            check_order(new_left, new_right, depth)
-            depth -= 1
-        elif "]" in lc or "]" in rc:
-            #TODO remove this because probably wrong
             continue
-        elif lc[0].isdigit() and rc[0].isdigit():
+        if verbose:
+            print(f"{depth * '  '}Compare {lc} vs {rc}")
+        if type(lc) == list and type(rc) == int:
+            # left is list so make right one as well
+            if verbose:
+                print(f"{depth * '  '}Mixed types; convert right to [{rc}] and retry comparison")
+            depth += 1
+            check_order(lc, [rc], depth)
+            depth -= 1
+        elif type(lc) == int and type(rc) == list:
+            # right is list so make left one as well
+            if verbose:
+                print(f"{depth * '  '}Mixed types; convert left to [{lc}] and retry comparison")
+            depth += 1
+            check_order([lc], rc, depth)
+            depth -= 1
+        elif type(lc) == int and type(rc) == int:
             # both ints so compare
             if lc == rc:
                 continue
-            elif int(lc) < int(rc):
+            elif lc < rc:
                 # Right order so exit
-                # print(f"{(depth + 1) * '  '}Left side is smaller, so inputs are in the right order")
+                if verbose:
+                    print(f"{(depth + 1) * '  '}Left side is smaller, so inputs are in the right order")
                 raise true_error
             else:
                 # right bigger so wrong
-                # print(f"{(depth + 1)* '  '}Right side is smaller, so inputs are not in the right order")
+                if verbose:
+                    print(f"{(depth + 1)* '  '}Right side is smaller, so inputs are not in the right order")
                 raise false_error
-    if len(left) > len(right):
-        # print(f"{depth * '  '}Right side ran out of items, so inputs are not in the right order")
+
+
+    if len(left) == 0 and len(right) == 0:
+        if verbose:
+            print(f"{(depth + 1)  * '  '}Both ran out so continue")
+        return
+    elif len(left) == 0:
+        if verbose:
+            print(f"{depth * '  '}Left side ran out of items, so inputs are in the right order")
+        raise true_error
+    elif len(right) == 0:
+        if verbose:
+            print(f"{depth * '  '}Right side ran out of items, so inputs are not in the right order")
         raise false_error
+    elif len(right) < len(left):
+        if verbose:
+            print(f"{depth * '  '}Right side ran out of items, so inputs are not in the right order")
+        raise false_error
+
     if depth == 1:
         # Reached end
-        # print("  Left side ran out of items, so inputs are in the right order")
+        if verbose:
+            print("  Left side ran out of items, so inputs are in the right order")
         raise true_error
 
 if __name__ == "__main__":
     pairs = []
     pair = []
     packets = []
-    with open('example.txt') as data_file:
+    with open('input.txt') as data_file:
         for line in data_file:
             if line == '\n':
                 pairs.append(pair)
                 pair = []
             else:
-                pair.append(line.strip())
-                packets.append(line.strip()[1:-1].split(","))
+                parsed = parse_inputs(line.strip()[1:-1].split(","), 1)
+                pair.append(parsed)
+                packets.append(parsed)
         pairs.append(pair)
     part1_sum = 0
     for pi, pair in enumerate(pairs):
         left, right = pair
-        # remove outermost bracket
-        left = left[1:-1].split(",")
-        right = right[1:-1].split(",")
 
-        # print(f"\nPair {pi+1}:")
+        print(f"\n== Pair {pi + 1} ==")
         depth = 1
         try:
             check_order(left, right, depth)
         except true_error:
             # print(True)
+            print(pi + 1)
             part1_sum += pi + 1
         except false_error:
             # print(False)
             continue
 
-    # print(f"Part1: {part1_sum}")
+    print(f"Part 1: {part1_sum}")
 
-    first_input  = "[[2]]"[1:-1].split(",")
-    second_input = "[[6]]"[1:-1].split(",")
+    first_input  = [[2]]
+    second_input = [[6]]
     packets.append(first_input)
     packets.append(second_input)
-    # still_sorting = True
-    # run_i = 1
-    # while still_sorting:
-    #     # print(f"\nRun {run_i}")
-    #     # for pack in packets:
-    #     #     # print(pack)
-    #     still_sorting = False
-    #     for pi in range(1, len(packets)):
-    #         # Check if infront of next
-    #         first  = packets[pi-1]
-    #         second = packets[pi]
-    #         try:
-    #             # # print("")
-    #             check_order(first, second, depth)
-    #         except true_error:
-    #             # Right order so do nothing
-    #             continue
-    #         except false_error:
-    #             # Switch them
-    #             packets[pi-1] = second
-    #             packets[pi] = first
-    #             # Not done yet
-    #             still_sorting = True
-    #     run_i += 1
-
-    still_sorting = True
-    run_i = 1
-    while still_sorting:
-        still_sorting = False
-        print(f"\nRun {run_i}")
-        for i in range(1, len(packets)):
-            # print(f"  Packet {i}")
-            current_pos = packets[i]
-            j = i - 1
-            unordered = True
-            while j >= 0 and unordered:
-                # print(f"    J: {j}")
-                packets[j + 1] = packets[j]
-                j = j -1
-
-                try:
-                    check_order(current_pos, packets[j], depth)
-                except true_error:
-                    # Right order so do nothing
-                    continue
-                except false_error:
-                    # Switch them
-                    unordered = False
-            packets[j + 1] = current_pos
-
-        # Check if it's in the right order now
-        for pi in range(1, len(packets)):
-            # Check if infront of next
-            first  = packets[pi-1]
-            second = packets[pi]
-            try:
-                check_order(first, second, depth)
-            except true_error:
-                # Right order so do nothing
-                continue
-            except false_error:
-                # Not done yet
-                still_sorting = True
-        run_i += 1
-        if run_i%10 == 0:
-            packets = packets[-1] + packets[:-1]
-        for pack in packets:
-            print(pack)
+    packets = sorted(packets, key=functools.cmp_to_key(check_order_wrapper))
 
     for pi, pack in enumerate(packets):
         if pack == first_input:
             first_loc = pi + 1
         elif pack == second_input:
             second_loc = pi + 1
-        print(pack)
+        # print(pack)
     print(f"Part 2: {first_loc * second_loc}")
